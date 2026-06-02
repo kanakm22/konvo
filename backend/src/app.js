@@ -1,4 +1,5 @@
-require('dotenv').config();
+import dotenv from 'dotenv';
+dotenv.config();
 import express from "express";
 import {createServer} from "node:http";
 import {Server} from "socket.io";
@@ -8,8 +9,11 @@ const app = express();
 import {connectToSocket} from "./controllers/socketManager.js";
 import userRoutes from "./routes/users.routes.js"
 
+
 const server = createServer(app);
 const io = connectToSocket(server);
+
+
 
 app.set("port", process.env.PORT || 8000);
 app.use(cors());
