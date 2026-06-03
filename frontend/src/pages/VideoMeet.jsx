@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import "../styles/VideoMeet.css";
+import "../styles/VideoMeet.module.css";
 import { TextField, Button, Typography, Container, Box, Grid } from '@mui/material';
 // import { connectToSocket } from '../../../backend/src/controllers/socketManager';
 import { io } from 'socket.io-client';
+
 
 const server_url = 'http://localhost:8000';
 
@@ -86,14 +87,15 @@ function VideoMeet() {
   }
 
   let silence = () => {
-    let stx = new AudioContext()
-    let oscillator = createContext.createOscilltor();
+    let ctx = new AudioContext();
+    let oscillator = ctx.createOscillator();
+    let dst = ctx.createMediaStreamDestination();
 
-    let dst = oscillator.connect(createContext.createMediaStreamDestination());
+    oscillator.connect(dst);
 
     oscillator.start();
     ctx.resume();
-    return Object.assign(dst.stream.getAudioTracks()[0], { enabled: false })
+    return Object.assign(dst.stream.getAudioTracks()[0], { enabled: false });
   }
 
   let black = ({ width = 640, height = 780 } = {}) => {
@@ -314,15 +316,36 @@ function VideoMeet() {
           <TextField id="outlined-basic" value={username} onChange={e => setUsername(e.target.value)} label="username" variant="outlined" />
           <Button variant="contained" onClick={getMedia}>Connect</Button>
 
-          <div>
-            <video ref={localVideoRef} autoPlay muted playsInline></video>
+          <div >
+            <video  ref={localVideoRef} autoPlay muted playsInline></video>
           </div>
-        </div> : <>
-        <video ref={localVideoRef} autoPlay muted></video>
-        <div key={video.socketId}>
+        </div> : <div className={styles.meetVideoContainer} >
 
+          <div className="buttonContainer">
+            
+          </div>
+
+          <video className={styles.meetUserVideo} ref={localVideoRef} autoPlay muted></video>
+          {videos.map((video) => {
+            <div key={video.socketId}>
+              <h2>{video.socketId}</h2>
+
+              <video
+                data-socket={video.socketId}
+                ref={ref => {
+                  if (ref && video.stream) {
+                    ref.srcObject = video.stream;
+                  }
+                }}
+                autoPlay
+
+              >
+
+              </video>
+
+            </div>
+          })}
         </div>
-        </>
       }
     </div>
   );
