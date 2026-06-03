@@ -1,5 +1,6 @@
 import { Server } from "socket.io";
 
+
 let connections = {}
 let messages = {}
 let timeOnline = {}
@@ -16,16 +17,18 @@ const connectToSocket = (server) => {
   });
 
   io.on("connection", (socket) => {
+
+    console.log("SOMETHING CONNECTED")
     socket.on("join-call", (path) => {
       if (connections[path] === undefined) {
-        comnections[path] = []
+        connections[path] = []
       }
       connections[path].push(socket.id)
 
       timeOnline[socket.id] = new Date();
 
-      for (let a = 0; a < connections[path].length; i++) {
-        io.to(connections[path][a]).emit("user-joined", socket.id, conncetions[path]);
+      for (let a = 0; a < connections[path].length; a++) {
+        io.to(connections[path][a]).emit("user-joined", socket.id, connections[path]);
       }
 
       if (messages[path] !== undefined) {
@@ -73,11 +76,12 @@ const connectToSocket = (server) => {
       var key;
 
       for (const [k, v] of JSON.parse(JSON.stringify(Object.entries(connections)))) {
+        key = k;
         for(let a = 0; a< v.length; ++a){
           io.to(connections[key][a]).emit('user-left', socket.id)
         }
 
-        var index = connnections[key].indexOf(socket.id)
+        var index = connections[key].indexOf(socket.id)
 
         connections[key].splice(index, 1);
 

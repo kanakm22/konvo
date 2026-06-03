@@ -2,14 +2,15 @@ import React, { useEffect, useRef, useState } from 'react';
 import "../styles/VideoMeet.css";
 import { TextField, Button, Typography, Container, Box, Grid } from '@mui/material';
 // import { connectToSocket } from '../../../backend/src/controllers/socketManager';
+import { io } from 'socket.io-client';
 
-const server_url = 'localhost://8000';
+const server_url = 'http://localhost:8000';
 
 var connections = {};
 
 const peerConfigConnections = {
   "iceServers": [
-    { "urls": "stun.stun.l.google.com:19302" }
+    { "urls": "stun:stun.l.google.com:19302" }
   ]
 }
 
@@ -54,7 +55,7 @@ function VideoMeet() {
       // audio
       const audioPermission = await navigator.mediaDevices.getUserMedia({ audio: true })
 
-       if (audioPermission) {
+      if (audioPermission) {
         setVideoAvailable(true);
       } else {
         setVideoAvailable(false);
@@ -85,14 +86,14 @@ function VideoMeet() {
   }
 
   // for actions in local system in other clients system
-  let getUserMediaSuccess = (stream) =>{
+  let getUserMediaSuccess = (stream) => {
 
   }
 
   let getUserMedia = () => {
     if ((video && videoAvailable) || (audio && audioAvailable)) {
       navigator.mediaDevices.getUserMedia({ video: video, audio: audio })
-      .then(getUserMediaSuccess)
+        .then(getUserMediaSuccess)
         .then((stream) => {
           window.localStream = stream;
           if (localVideoRef.current) {
@@ -112,7 +113,7 @@ function VideoMeet() {
     }
   }
 
-  
+
   useEffect(() => {
     if (video !== undefined && audio !== undefined) {
       getUserMedia();
@@ -121,13 +122,98 @@ function VideoMeet() {
 
   useEffect(() => {
     getPermissions();
+    
 
   }, [])
+
+  let gotMessageFromServer = (fromId, message) => {
+
+  }
+
+  let addMessage = () => {
+
+  }
+
+  let connectToSocketServer = () => {
+    socketRef.current = io.connect(server_url, { secure: false });
+    socketRef.current.on('signal', gotMessageFromServer);
+    socketRef.current.on('connect', () => {
+      socketRef.current.emit("join-call", window.location.href)
+      socketId.current = socketRef.current.id;
+      socketRef.current.on("chat-message", addMessage)
+      socketRef.current.on('user-left', (id) => {
+        setVideos((videos) => videos.filter((video) => { video.socketId !== id }))
+      })
+      socketRef.current.on("user-joined",(id, clients) =>{
+        clients.forEach((socketListId) =>{
+
+          connections[socketListId] = new RTCPeerConnection(peerConfigConnections)
+          connections[socketListId].onicecandidate = (event) =>{
+            if(event.candidate !== null){
+              socketRef.current.emit("signal", socketListId, JSON.stringify({'ice': event.candidate}))
+            }
+          }
+
+          connections[socketListId].onaddstream = (event) =>{
+            let videoExists = videoRef.current.find(video => video.socketId === socketListId)
+            if(videoExists){
+              setVideo(videos =>{
+                const updateVideos = videos.map(video =>
+                  video.socketId === socketListId? {...video, stream: event.stream} : video
+                ) 
+                videoRef.current = updateVideos;
+                return updateVideos;
+              }) 
+            }else{
+              let newVideo = {
+                socketId: socketListId,
+                stream: event.stream,
+                autoPlay: true,
+                playsInline: true,
+              }
+              setVideos( videos =>{
+                const updatedVideos = [...videos, newVideo]
+                videoRef.current = updatedVideos;
+                return updatedVideos;
+              }) 
+
+            }
+          };
+          if(window.localStream !== undefined && window.localStream !== null){
+            connections[socketListId].addStream(window.localStream);
+
+          }else{
+            //let blackSilence
+          }
+        })
+        if(id === socketId.current){
+           for(let id2 in connections){
+            if(id2 === socketId.current) continue
+
+            try{
+              connections[id2].addStream(window.localStream)
+
+            }catch(e){
+
+            }
+            connections[id2].createOffer().then((description) =>{
+              connections[id2].setLocalDescription(description)
+              .then( () =>{
+                socketRef.current.emit("signal", id2), JSON.stringify({"sdp":connections[id2].localDescription })
+              })
+              .catch(e =>console.log(e))
+
+            })
+           }
+        }
+      } )
+    })
+  }
 
   let getMedia = () => {
     setVideo(videoAvailable);
     setAudio(audioAvailable);
-    // connectToSocketServer();
+    connectToSocketServer();
   }
 
 
@@ -137,7 +223,7 @@ function VideoMeet() {
         <div>
           <h2>Enter into Lobby</h2>
           <TextField id="outlined-basic" value={username} onChange={e => setUsername(e.target.value)} label="username" variant="outlined" />
-          <Button variant="contained" >Connect</Button>
+          <Button variant="contained" onClick={getMedia}>Connect</Button>
 
           <div>
             <video ref={localVideoRef} autoPlay muted playsInline></video>
