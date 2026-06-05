@@ -34,7 +34,7 @@ function VideoMeet() {
   let [video, setVideo] = useState();
   let [audio, setAudio] = useState();
   let [screen, setScreen] = useState();
-  let [showModal, setShowModal] = useState();
+  let [showModal, setShowModal] = useState(true);
   let [screenAvailable, setScreenAvailable] = useState();
   let [message, setMessage] = useState("");
   let [messages, setmessages] = useState([]);
@@ -434,68 +434,72 @@ function VideoMeet() {
     }
   };
 
-  let getDisplayMediaSuccess = (stream) =>{
-    try{
+  let getDisplayMediaSuccess = (stream) => {
+    try {
       window.localStream.getTracks().forEach((track) => track.stop());
-    }catch(e){
+    } catch (e) {
       console.log(e);
     }
 
     window.localStream = stream;
     localVideoRef.current.srcObject = stream;
 
-    for(let id in connections) {
-      if(id === socketId.current) continue;
+    for (let id in connections) {
+      if (id === socketId.current) continue;
 
       connections[id].addStream(window.localStream)
       connections[id].createOffer()
-      .then((description) =>{
-        connections[id].setLocalDescription(description)
-        .then( () =>{
-          socketRef.current.emit("signal",id, JSON.stringify({"sdp": connections[id].localDescription}))
+        .then((description) => {
+          connections[id].setLocalDescription(description)
+            .then(() => {
+              socketRef.current.emit("signal", id, JSON.stringify({ "sdp": connections[id].localDescription }))
+            })
+            .catch(e => console.log(e))
         })
-        .catch(e => console.log(e))
-      })
     }
     stream.getTracks().forEach(track => track.onended = () => {
       setScreen(false);
 
-      try{
+      try {
         let tracks = localVideoRef.current.srcObject.getTracks();
         tracks.forEach(track => track.stop())
-      }catch(e){
+      } catch (e) {
         console.log(e);
       }
-       let blacksilence = (...args) => new MediaStream([black(...args), silence()])
+      let blacksilence = (...args) => new MediaStream([black(...args), silence()])
       window.localStream = blacksilence();
       localVideoRef.current.srcObject = window.localStream;
 
       getUserMedia();
 
     })
-    
+
 
   }
 
-  let getDisplayMedia = () =>{
-    if(screen){
-      if(navigator.mediaDevices.getDisplayMedia){
-        navigator.mediaDevices.getDisplayMedia({video: true, audio: true})
-        .then(getDisplayMediaSuccess)
-        .then((screen = { }))
-        .catch((e) => console.log(e))
+  let getDisplayMedia = () => {
+    if (screen) {
+      if (navigator.mediaDevices.getDisplayMedia) {
+        navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })
+          .then(getDisplayMediaSuccess)
+          .then((screen = {}))
+          .catch((e) => console.log(e))
       }
     }
   }
 
-  useEffect(() =>{
-    if(screen !== undefined){
+  useEffect(() => {
+    if (screen !== undefined) {
       getDisplayMedia();
     }
   }, [screen])
 
-  let handleScreen = () =>{
+  let handleScreen = () => {
     setScreen(!screen);
+  }
+
+  let sendMessage = () =>{
+    
   }
 
 
@@ -521,6 +525,29 @@ function VideoMeet() {
 
         <div className={styles.meetVideoContainer}>
 
+          {showModal ? <div className={styles.chatRoom}>
+            <div className={styles.chatContainer}>
+              <h1>Chat</h1>
+              <div className={styles.chattingArea}>
+                <TextField
+                  id="standard-basic"
+                  label="Chat"
+                  variant="standard"
+                  sx={{
+                    '& .MuiInput-underline:after': {
+                      borderBottomColor: '#1f0029',
+                    },
+                    '& .MuiInputLabel-root.Mui-focused': {
+                      color: '#1f0029',
+                    },
+                  }} />
+                <Button variant="contained" onClick={sendMessage}>Send</Button>
+              </div>
+
+            </div>
+          </div> : <></>}
+
+
 
 
           <div className={styles.buttonContainers}>
@@ -540,7 +567,7 @@ function VideoMeet() {
               </IconButton> : <></>}
 
             <Badge badgeContent={newMessage} max={999} color='orange'>
-              <IconButton onClick={() => setModal(!showModal)} style={{ color: "white" }}>
+              <IconButton onClick={() => setShowModal(!showModal)} style={{ color: "white" }}>
                 <ChatIcon />                        </IconButton>
             </Badge>
 

@@ -8,7 +8,7 @@
 .meetUserVideo {
     position: absolute;
     bottom: 10vh;
-    right: 20px; 
+    left: 20px; 
     height: 20vh;
     width: auto;
     border-radius: 20px;
@@ -62,4 +62,38 @@
     margin: 0 10px;
     box-shadow: 0px 3px 6px rgba(0, 0, 0, 0.16);
 
+}
+
+.chatRoom{
+  position: absolute;
+  right: 0;
+  height: 90vh;
+  background-color: white;
+  border-radius: 10px;
+  width: 25vw; 
+  bottom: 10vh;
+  padding-inline: 20px;
+}
+
+.chatContainer{
+  position: relative;
+  height: 100%;
+  padding-top: 1rem;
+}
+
+.chattingArea{
+  position: absolute;
+  bottom: 2vh;
+  
+}
+
+
+.chattingArea div {
+    flex: 1;
+}
+
+.chattingArea button {
+    height: 40px; 
+    white-space: nowrap;
+    background-color: #1f0029;
 }
