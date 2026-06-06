@@ -30,6 +30,7 @@ function VideoMeet() {
   let socketId = useRef();
   let localVideoRef = useRef();
 
+  const [meetingCode, setMeetingCode] = useState("");
   let [videoAvailable, setVideoAvailable] = useState(true);
   let [audioAvailable, setAudioAvailable] = useState(true);
   let [video, setVideo] = useState();
@@ -325,83 +326,84 @@ function VideoMeet() {
   }
 
   let connectToSocketServer = () => {
-    videoRef.current = [];
-    socketRef.current = io.connect(server_url, { secure: false });
-    socketRef.current.on('signal', gotMessageFromServer);
-    socketRef.current.on('connect', () => {
-      socketRef.current.emit("join-call", window.location.href)
-      socketId.current = socketRef.current.id;
-      // socketRef.current.on("chat-message", addMessage)
-      socketRef.current.on('user-left', (id) => {
-        setVideos((videos) => videos.filter((video) => { video.socketId !== id }))
-      })
-      socketRef.current.on("user-joined", (id, clients) => {
-        clients.forEach((socketListId) => {
-
-          connections[socketListId] = new RTCPeerConnection(peerConfigConnections)
-          connections[socketListId].onicecandidate = (event) => {
-            if (event.candidate !== null) {
-              socketRef.current.emit("signal", socketListId, JSON.stringify({ 'ice': event.candidate }))
-            }
-          }
-
-          connections[socketListId].onaddstream = (event) => {
-            let videoExists = videoRef.current.find(video => video.socketId === socketListId)
-            if (videoExists) {
-              setVideo(videos => {
-                const updateVideos = videos.map(video =>
-                  video.socketId === socketListId ? { ...video, stream: event.stream } : video
-                )
-                videoRef.current = updateVideos;
-                return updateVideos;
-              })
-            } else {
-              let newVideo = {
-                socketId: socketListId,
-                stream: event.stream,
-                autoPlay: true,
-                playsInline: true,
-              }
-              setVideos(videos => {
-                const updatedVideos = [...videos, newVideo]
-                videoRef.current = updatedVideos;
-                return updatedVideos;
-              })
-
-            }
-          };
-          if (window.localStream !== undefined && window.localStream !== null) {
-            connections[socketListId].addStream(window.localStream);
-
-          } else {
-            let blacksilence = (...args) => new MediaStream([black(...args), silence()])
-            window.localStream = blacksilence();
-            connections[socketListId].addStream(window.localStream);
-          }
-        })
-        if (id === socketId.current) {
-          for (let id2 in connections) {
-            if (id2 === socketId.current) continue
-
-            try {
-              connections[id2].addStream(window.localStream)
-
-            } catch (e) {
-
-            }
-            connections[id2].createOffer().then((description) => {
-              connections[id2].setLocalDescription(description)
-                .then(() => {
-                  socketRef.current.emit("signal", id2, JSON.stringify({ "sdp": connections[id2].localDescription }));
-                })
-                .catch(e => console.log(e))
-
-            })
+  videoRef.current = [];
+  socketRef.current = io.connect(server_url, { secure: false });
+  socketRef.current.on('signal', gotMessageFromServer);
+  socketRef.current.on('connect', () => {
+    socketRef.current.emit("join-call", window.location.href)
+    socketId.current = socketRef.current.id;
+    
+    socketRef.current.on('user-left', (id) => {
+      setVideos((videos) => videos.filter((video) => video.socketId !== id))
+    })
+    
+    socketRef.current.on("user-joined", (id, clients) => {
+      clients.forEach((socketListId) => {
+        connections[socketListId] = new RTCPeerConnection(peerConfigConnections)
+        
+        connections[socketListId].onicecandidate = (event) => {
+          if (event.candidate !== null) {
+            socketRef.current.emit("signal", socketListId, JSON.stringify({ 'ice': event.candidate }))
           }
         }
+
+        connections[socketListId].onaddstream = (event) => {
+          let videoExists = videoRef.current.find(video => video.socketId === socketListId)
+          
+          if (videoExists) {
+            setVideos(videos => {
+              const updateVideos = videos.map(video =>
+                video.socketId === socketListId ? { ...video, stream: event.stream } : video
+              )
+              videoRef.current = updateVideos;
+              return updateVideos;
+            })
+          } else {
+            let newVideo = {
+              socketId: socketListId,
+              stream: event.stream,
+              autoPlay: true,
+              playsInline: true,
+            }
+            setVideos(videos => {
+              const updatedVideos = [...videos, newVideo]
+              videoRef.current = updatedVideos;
+              return updatedVideos;
+            })
+          }
+        };
+
+        if (window.localStream !== undefined && window.localStream !== null) {
+          connections[socketListId].addStream(window.localStream);
+        } else {
+          let blacksilence = (...args) => new MediaStream([black(...args), silence()])
+          window.localStream = blacksilence();
+          connections[socketListId].addStream(window.localStream);
+        }
       })
+
+      if (id === socketId.current) {
+        for (let id2 in connections) {
+          if (id2 === socketId.current) continue
+          
+          try {
+            connections[id2].addStream(window.localStream)
+          } catch (e) {
+            console.log(e)
+          }
+          
+          connections[id2].createOffer().then((description) => {
+            connections[id2].setLocalDescription(description)
+              .then(() => {
+                socketRef.current.emit("signal", id2, JSON.stringify({ "sdp": connections[id2].localDescription }));
+              })
+              .catch(e => console.log(e))
+          })
+        }
+      }
     })
-  }
+  })
+}
 
   let getMedia = async () => {
     try {
@@ -422,7 +424,7 @@ function VideoMeet() {
   };
 
   let routeTo = useNavigate();
-  
+
 
   let connect = () => {
     setAskForUsername(false);
@@ -533,17 +535,41 @@ function VideoMeet() {
   }
 
   let sendMessage = (e) => {
-  if (e && typeof e.preventDefault === "function") {
-    e.preventDefault();
+    if (e && typeof e.preventDefault === "function") {
+      e.preventDefault();
+    }
+
+    if (message.trim() === "") return;
+
+    socketRef.current.emit("chat-message", message, username);
+
+    setmessages((prev) => [...prev, { sender: username || "You", message: message }]);
+    setMessage("");
+  };
+
+  const saveMeetingToHistory = async (code) => {
+    try {
+      console.log("1. Sending this to backend:", { token: localStorage.getItem("token"), meeting_code: code });
+      
+      let response = await client.post("/add_to_activity", {
+        token: localStorage.getItem("token"),
+        meeting_code: code
+      });
+      
+      console.log("2. Backend successfully saved:", response.data);
+    } catch (err) {
+      console.log("3. Backend rejected it. Error:", err.response?.data || err);
+    }
   }
 
-  if (message.trim() === "") return;
-
-  socketRef.current.emit("chat-message", message, username);
-  
-  setmessages((prev) => [...prev, { sender: username || "You", message: message }]);
-  setMessage("");
-};
+//   useEffect(() => {
+//     const startMeeting = async () => {
+//         await connectWebRTC();
+//         saveMeetingToHistory(meetingCodeFromUrl);
+//     }
+    
+//     startMeeting();
+// }, [])
 
 
 
@@ -574,41 +600,41 @@ function VideoMeet() {
         <div className={styles.meetVideoContainer}>
 
           {showModal ? <div className={styles.chatRoom}>
-    <div className={styles.chatContainer}>
-      <h1>Chat</h1>
-      
-      <div className={styles.chattingDisplay}>
-        {messages.map((item, index) => {
-          return (
-            <div style={{ marginBottom: "20px" }} key={index}>
-              <p style={{ fontWeight: "bold" }}>{item.sender}</p>
-              <p>{item.message}</p>
+            <div className={styles.chatContainer}>
+              <h1>Chat</h1>
+
+              <div className={styles.chattingDisplay}>
+                {messages.map((item, index) => {
+                  return (
+                    <div style={{ marginBottom: "20px" }} key={index}>
+                      <p style={{ fontWeight: "bold" }}>{item.sender}</p>
+                      <p>{item.message}</p>
+                    </div>
+                  )
+                })}
+              </div>
+
+              <div className={styles.chattingArea}>
+                <TextField
+                  value={message}
+                  onChange={e => setMessage(e.target.value)}
+                  id="standard-basic"
+                  label="Chat"
+                  variant="standard"
+                  sx={{
+                    '& .MuiInput-underline:after': {
+                      borderBottomColor: '#1f0029',
+                    },
+                    '& .MuiInputLabel-root.Mui-focused': {
+                      color: '#1f0029',
+                    },
+                  }}
+                />
+                <Button variant="contained" onClick={() => sendMessage()}>Send</Button>
+              </div>
+
             </div>
-          )
-        })}
-      </div>
-
-      <div className={styles.chattingArea}>
-        <TextField
-          value={message}
-          onChange={e => setMessage(e.target.value)}
-          id="standard-basic"
-          label="Chat"
-          variant="standard"
-          sx={{
-            '& .MuiInput-underline:after': {
-              borderBottomColor: '#1f0029',
-            },
-            '& .MuiInputLabel-root.Mui-focused': {
-              color: '#1f0029',
-            },
-          }} 
-        />
-        <Button variant="contained" onClick={() => sendMessage()}>Send</Button>
-      </div>
-
-    </div>
-  </div> : <></>}
+          </div> : <></>}
 
 
 
