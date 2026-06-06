@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { useAuth } from "../contexts/AuthContext";
+import { AuthContext } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 export default function Auth() {
+  const navigate = useNavigate();
     const [isLogin, setIsLogin] = useState(true);
     const [name, setName] = useState("");
     const [username, setUsername] = useState("");
@@ -10,24 +12,29 @@ export default function Auth() {
 
     const { handleLogin, handleRegister, loading } = useAuth();
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError("");
-
-        if (isLogin) {
-            const res = await handleLogin(username, password);
-            if (!res.success) setError(res.message);
-        } else {
-            const res = await handleRegister(name, username, password);
-            if (res.success) {
-                setIsLogin(true);
-                setName("");
-                setPassword("");
-            } else {
-                setError(res.message);
-            }
-        }
-    };
+   const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  if (isLogin) {
+    const res = await handleLogin(username, password);
+    if (res.success) {
+      localStorage.setItem("token", res.token);
+      navigate("/home");
+    } else {
+      setError(res.message);
+    }
+  } else {
+    const res = await handleRegister(name, username, password);
+    if (res.success) {
+      setIsLogin(true);
+      setName("");
+      setPassword("");
+      navigate("/home");
+    } else {
+      setError(res.message);
+    }
+  }
+};
 
     return (
         <div style={{ display: "flex", height: "100vh", width: "100vw", fontFamily: "sans-serif" }}>

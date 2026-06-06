@@ -1,25 +1,29 @@
 import './App.css'
 import LandingPage from './pages/Landing';
-import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom"; 
+import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom";
 import Auth from './pages/Auth';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AuthProvider } from './contexts/AuthContext';
 import VideoMeet from './pages/VideoMeet';
+import Home from './pages/Home';
 
 
 function App() {
   return (
     <>
-    <AuthProvider>
+
       <Router>
-        
+        <AuthProvider>
+
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/:url" element={<VideoMeet />} />
+            <Route path="/home" element={<Home />} />
           </Routes>
-        
+        </AuthProvider>
+
       </Router>
-      </AuthProvider>
+
     </>
   )
 }

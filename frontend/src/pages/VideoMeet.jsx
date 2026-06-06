@@ -11,6 +11,7 @@ import MicOffIcon from "@mui/icons-material/MicOff"
 import ScreenShareIcon from "@mui/icons-material/ScreenShare"
 import StopScreenShareIcon from "@mui/icons-material/StopScreenShare"
 import ChatIcon from "@mui/icons-material/Chat";
+import { useNavigate } from 'react-router-dom';
 
 
 
@@ -308,7 +309,18 @@ function VideoMeet() {
     }
   }
 
-  let addMessage = () => {
+
+
+
+  let addMessage = (data, sender, socketIdSender) => {
+    setMessage((prevMessages) => [
+      ...prevMessages,
+      { sender: sender, data: data }
+    ]);
+
+    if (socketIdSender !== socketId.connect) {
+      setNewMessages((prevMessages) => prevMessages + 1);
+    }
 
   }
 
@@ -319,7 +331,7 @@ function VideoMeet() {
     socketRef.current.on('connect', () => {
       socketRef.current.emit("join-call", window.location.href)
       socketId.current = socketRef.current.id;
-      socketRef.current.on("chat-message", addMessage)
+      // socketRef.current.on("chat-message", addMessage)
       socketRef.current.on('user-left', (id) => {
         setVideos((videos) => videos.filter((video) => { video.socketId !== id }))
       })
@@ -409,6 +421,9 @@ function VideoMeet() {
     }
   };
 
+  let routeTo = useNavigate();
+  
+
   let connect = () => {
     setAskForUsername(false);
     getMedia();
@@ -494,13 +509,46 @@ function VideoMeet() {
     }
   }, [screen])
 
+  let handleEndCall = () => {
+    try {
+      let tracks = localVideoref.current.srcObject.getTracks()
+      tracks.forEach(track => track.stop())
+    } catch (e) { }
+    routeTo("/home");
+  }
+
+  let openChat = () => {
+    setModal(true);
+    setNewMessages(0);
+  }
+  let closeChat = () => {
+    setModal(false);
+  }
+  let handleMessage = (e) => {
+    setMessage(e.target.value);
+  }
+
   let handleScreen = () => {
     setScreen(!screen);
   }
 
-  let sendMessage = () =>{
-    
+  let sendMessage = (e) => {
+  if (e && typeof e.preventDefault === "function") {
+    e.preventDefault();
   }
+
+  if (message.trim() === "") return;
+
+  socketRef.current.emit("chat-message", message, username);
+  
+  setmessages((prev) => [...prev, { sender: username || "You", message: message }]);
+  setMessage("");
+};
+
+
+
+
+
 
 
   return (
@@ -526,26 +574,41 @@ function VideoMeet() {
         <div className={styles.meetVideoContainer}>
 
           {showModal ? <div className={styles.chatRoom}>
-            <div className={styles.chatContainer}>
-              <h1>Chat</h1>
-              <div className={styles.chattingArea}>
-                <TextField
-                  id="standard-basic"
-                  label="Chat"
-                  variant="standard"
-                  sx={{
-                    '& .MuiInput-underline:after': {
-                      borderBottomColor: '#1f0029',
-                    },
-                    '& .MuiInputLabel-root.Mui-focused': {
-                      color: '#1f0029',
-                    },
-                  }} />
-                <Button variant="contained" onClick={sendMessage}>Send</Button>
-              </div>
-
+    <div className={styles.chatContainer}>
+      <h1>Chat</h1>
+      
+      <div className={styles.chattingDisplay}>
+        {messages.map((item, index) => {
+          return (
+            <div style={{ marginBottom: "20px" }} key={index}>
+              <p style={{ fontWeight: "bold" }}>{item.sender}</p>
+              <p>{item.message}</p>
             </div>
-          </div> : <></>}
+          )
+        })}
+      </div>
+
+      <div className={styles.chattingArea}>
+        <TextField
+          value={message}
+          onChange={e => setMessage(e.target.value)}
+          id="standard-basic"
+          label="Chat"
+          variant="standard"
+          sx={{
+            '& .MuiInput-underline:after': {
+              borderBottomColor: '#1f0029',
+            },
+            '& .MuiInputLabel-root.Mui-focused': {
+              color: '#1f0029',
+            },
+          }} 
+        />
+        <Button variant="contained" onClick={() => sendMessage()}>Send</Button>
+      </div>
+
+    </div>
+  </div> : <></>}
 
 
 
@@ -554,7 +617,7 @@ function VideoMeet() {
             <IconButton onClick={handleVideo} style={{ color: "white" }}>
               {(video === true) ? <VideoCamIcon /> : <VideoCamOffIcon />}
             </IconButton>
-            <IconButton style={{ color: "red" }}>
+            <IconButton onClick={handleEndCall} style={{ color: "red" }}>
               <CallEndIcon />
             </IconButton>
             <IconButton onClick={handleAudio} style={{ color: "white" }}>
