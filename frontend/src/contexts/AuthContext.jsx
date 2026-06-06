@@ -1,62 +1,55 @@
 import axios from "axios";
 import httpStatus from "http-status";
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
-const server = "http://localhost:8000";
+const serverUrl = "http://localhost:8000/api/v1/users";
 
 export const AuthContext = createContext({});
 
 const client = axios.create({
-  baseURL: `${server}/api/v1/users`
+  baseURL: `${serverUrl}`
 })
 
 
 export const AuthProvider = ({ children }) => {
+    const [token, setToken] = useState(localStorage.getItem("token") || "");
+    const [loading, setLoading] = useState(false);
 
-  // const authContext = useContext(AuthContext);
-
-
-  const [userData, setUserData] = useState(null);
-
-
-  const router = useNavigate();
+    useEffect(() => {
+        if (token) {
+            localStorage.setItem("token", token);
+        } else {
+            localStorage.removeItem("token");
+        }
+    }, [token]);
 
   const handleRegister = async (name, username, password) => {
-    try {
-      let request = await client.post("/register", {
-        name: name,
-        username: username,
-        password: password
-      })
-
-
-      if (request.status === httpStatus.CREATED) {
-        return request.data.message;
-      }
-    } catch (err) {
-      throw err;
-    }
-  }
+        setLoading(true);
+        try {
+            const response = await axios.post(`${serverUrl}/register`, { name, username, password });
+            return { success: true, message: response.data.message };
+        } catch (error) {
+            return { success: false, message: error.response?.data?.message || "Registration failed" };
+        } finally {
+            setLoading(false);
+        }
+    };
 
   const handleLogin = async (username, password) => {
-    try {
-      let request = await client.post("/login", {
-        username: username,
-        password: password
-      });
-
-      if (request.status === httpStatus.OK) {
-        return { success: true, token: request.data.token };
-      }
-    } catch (err) {
-      return {
-        success: false,
-        message: err.response?.data?.message || "Login failed"
-      };
-    }
-  };
-
+        setLoading(true);
+        try {
+            const response = await axios.post(`${serverUrl}/login`, { username, password });
+            if (response.data.token) {
+                setToken(response.data.token);
+                return { success: true };
+            }
+        } catch (error) {
+            return { success: false, message: error.response?.data?.message || "Login failed" };
+        } finally {
+            setLoading(false);
+        }
+    };
   // const getHistoryOfUser = async () => {
   //   try {
   //     let request = await client.get("/get_all_activity", {
@@ -96,9 +89,13 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
+   const handleLogout = () => {
+        setToken("");
+    };
+
 
   const data = {
-    userData, setUserData, addToUserHistory, getHistoryOfUser, handleRegister, handleLogin
+      addToUserHistory, getHistoryOfUser, handleRegister, handleLogin
   }
 
   return (
